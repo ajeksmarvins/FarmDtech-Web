@@ -63,28 +63,31 @@ export function formatCrop(value: string): string {
 // ── Forecast API ────────────────────────────────────────────────────────────
 
 export type ForecastRecord = {
+  crop: string;
+  market_id: string | number;
   market: string;
   state: string;
-  last_month_price_ngn_per_kg: number;
-  forecasted_price_ngn_per_kg: number;
-  percent_change: number;
   forecast_month: string;
   last_month: string;
-  crop?: string;
+  last_price_ngn_per_kg: number;
+  forecast_ngn_per_kg: number;
+  change_percent: number;
 };
 
 export type ForecastResponse = {
-  crop: string;
-  forecast_month: string;
-  last_month: string;
   count: number;
+  forecast_type: string;
+  source: string;
+  is_live_market_data: boolean;
+  forecast_months: string[];
+  disclaimer: string;
   forecasts: ForecastRecord[];
 };
 
 function isForecastResponse(value: unknown): value is ForecastResponse {
   if (!value || typeof value !== 'object') return false;
   const r = value as Partial<ForecastResponse>;
-  return typeof r.crop === 'string' && Array.isArray(r.forecasts);
+  return typeof r.count === 'number' && Array.isArray(r.forecasts);
 }
 
 const forecastCache = new Map<string, { data: ForecastResponse; expiresAt: number }>();
@@ -105,7 +108,7 @@ export async function fetchForecast(crop: string): Promise<ForecastResponse> {
       forecastCache.set(key, { data: payload, expiresAt: Date.now() + 120_000 });
       return payload;
     })
-    .finally(() => forecastRequests.delete(key));
+    .finally(() => { forecastRequests.delete(key); });
 
   forecastRequests.set(key, request);
   return request;
