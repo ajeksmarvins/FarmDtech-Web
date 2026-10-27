@@ -98,11 +98,11 @@ function Forecasts() {
     setPage(1);
   }
 
-  const forecastMonthLabel = data?.forecast_month
-    ? formatDate(data.forecast_month + '-01')
+  const forecastMonthLabel = data?.forecasts?.[0]?.forecast_month
+    ? formatDate(data.forecasts[0].forecast_month)
     : 'Next month';
-  const lastMonthLabel = data?.last_month
-    ? formatDate(data.last_month + '-01')
+  const lastMonthLabel = data?.forecasts?.[0]?.last_month
+    ? formatDate(data.forecasts[0].last_month)
     : 'Last month';
 
   return (
@@ -214,15 +214,15 @@ function Forecasts() {
                     <td className="px-3 py-4 font-bold text-[#103f2c]">{item.market}</td>
                     <td className="px-3 py-4 text-slate-600">{item.state}</td>
                     <td className="px-3 py-4 text-slate-600">
-                      {formatNaira(item.last_month_price_ngn_per_kg)}
+                      {formatNaira(item.last_price_ngn_per_kg)}
                       <span className="ml-1 text-xs text-slate-400">/ kg</span>
                     </td>
                     <td className="px-3 py-4 font-bold text-[#126b42]">
-                      {formatNaira(item.forecasted_price_ngn_per_kg)}
+                      {formatNaira(item.forecast_ngn_per_kg)}
                       <span className="ml-1 text-xs font-normal text-slate-400">/ kg</span>
                     </td>
                     <td className="px-3 py-4">
-                      <ChangeCell pct={item.percent_change} />
+                      <ChangeCell pct={item.change_percent} />
                     </td>
                   </tr>
                 ))}
