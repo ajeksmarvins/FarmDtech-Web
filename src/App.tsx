@@ -8,7 +8,7 @@ const heroImage = 'https://images.pexels.com/photos/38668659/pexels-photo-386686
 const navItems = [{ label: 'Dashboard', to: '/dashboard' }, { label: 'Market Prices', to: '/prices' }, { label: 'Price Trends', to: '/trends' }, { label: 'Forecasts', to: '/forecasts' }, { label: 'Advisory', to: '/advisory' }];
 
 function App() {
-  return <BrowserRouter><div className="min-h-screen bg-[#f7faf7] text-slate-900"><Header /><main><Routes><Route path="/" element={<Home />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="/prices" element={<Prices />} /><Route path="/trends" element={<Trends />} /><Route path="/forecasts" element={<Forecasts />} /><Route path="/advisory" element={<ComingSoon icon={<MessageCircle />} eyebrow="AI crop advisory" title="Your next best farming decision, in one conversation." body="FarmDtech Advisory will bring trusted crop, price, and market context together in a simple assistant for your business." />} /><Route path="*" element={<Home />} /></Routes></main><Footer /></div></BrowserRouter>;
+  return <BrowserRouter><div className="min-h-screen bg-[#f7faf7] text-slate-900"><Header /><main><Routes><Route path="/" element={<Home />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="/prices" element={<Prices />} /><Route path="/trends" element={<Trends />} /><Route path="/forecasts" element={<Forecasts />} /><Route path="/advisory" element={<Advisory />} /><Route path="*" element={<Home />} /></Routes></main><Footer /></div></BrowserRouter>;
 }
 
 function Header() {
@@ -254,6 +254,40 @@ function Forecasts() {
       )}
     </div>
   );
+}
+
+function Advisory() {
+  const [crop, setCrop] = useState<'maize' | 'rice' | 'beans'>('maize');
+  const [state, setState] = useState('all');
+  const [transport, setTransport] = useState('');
+  const { data, loading, error, retry } = useForecast(crop);
+  const states = useMemo(() => [...new Set((data?.forecasts ?? []).map((r) => r.state))].sort(), [data]);
+  const cost = transport.trim() === '' ? null : Number(transport);
+  const validCost = cost === null || (Number.isFinite(cost) && cost >= 0);
+  const ranked = useMemo(() => (data?.forecasts ?? [])
+    .filter((r) => state === 'all' || r.state === state)
+    .filter((r) => Number.isFinite(r.forecast_ngn_per_kg) && Number.isFinite(r.last_price_ngn_per_kg))
+    .map((r) => ({ ...r, net: r.forecast_ngn_per_kg - (validCost && cost !== null ? cost : 0) }))
+    .sort((a, b) => b.net - a.net), [data, state, cost, validCost]);
+  const top = ranked.slice(0, 5);
+  return <div className="mx-auto max-w-7xl px-5 py-12 lg:px-8">
+    <PageHeader eyebrow="Crop selling advisory" title="Find a promising market for your crop." text="Compare next-month model forecasts across available Nigerian markets and explore potential selling opportunities." />
+    <div className="mb-7 rounded-2xl border border-[#f0d8a0] bg-[#fffaf0] p-5 text-sm leading-7 text-slate-700"><strong className="text-[#9a6709]">Important:</strong> This is a rule-based advisory powered by saved XGBoost forecasts, not a conversational AI agent or live price service. Forecasts are estimates, not guaranteed selling prices. Market accessibility, quality, fees, and actual transport costs must be checked independently.</div>
+    <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 sm:grid-cols-3">
+      <label className="text-sm font-semibold text-slate-700">Crop<select value={crop} onChange={(e) => { setCrop(e.target.value as typeof crop); setState('all'); }} className="mt-2 block w-full rounded-xl border border-slate-200 bg-white p-3 font-normal capitalize"><option value="maize">Maize</option><option value="rice">Rice</option><option value="beans">Beans</option></select></label>
+      <label className="text-sm font-semibold text-slate-700">Destination state<select value={state} onChange={(e) => setState(e.target.value)} className="mt-2 block w-full rounded-xl border border-slate-200 bg-white p-3 font-normal"><option value="all">All available states</option>{states.map((s) => <option key={s} value={s}>{s}</option>)}</select></label>
+      <label className="text-sm font-semibold text-slate-700">Estimated transport cost (₦/kg, optional)<input type="number" min="0" step="any" value={transport} onChange={(e) => setTransport(e.target.value)} placeholder="e.g. 25" className="mt-2 block w-full rounded-xl border border-slate-200 p-3 font-normal" /></label>
+    </div>
+    {!validCost && <p className="mt-3 text-sm text-red-700">Enter a non-negative transport cost, or leave it blank.</p>}
+    <div className="mt-7"><DataState loading={loading} error={error} onRetry={retry}>
+      {data && validCost && (top.length ? <div>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2"><h2 className="text-2xl font-bold text-[#103f2c]">Top forecast-price markets</h2><span className="text-sm text-slate-500">{ranked.length} markets compared · {data.forecasts[0]?.forecast_month ? formatDate(data.forecasts[0].forecast_month) : 'Next month'}</span></div>
+        <div className="grid gap-4 md:grid-cols-2">{top.map((r, index) => <div key={r.market + r.state} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wide text-[#55a936]">Rank {index + 1}</p><h3 className="mt-2 text-xl font-bold text-[#103f2c]">{r.market}</h3><p className="mt-1 text-sm text-slate-500">{r.state} State</p></div><MapPin className="text-[#126b42]" size={21} /></div><p className="mt-5 text-sm text-slate-500">Forecast selling price</p><p className="text-2xl font-bold text-[#126b42]">{formatNaira(r.forecast_ngn_per_kg)} <span className="text-sm font-normal text-slate-500">/kg</span></p><div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><span>Expected change: <ChangeCell pct={r.change_percent} /></span></div>{cost !== null && <p className="mt-4 rounded-xl bg-[#f7faf7] p-3 text-sm">Estimated price after entered transport cost: <strong>{formatNaira(r.net)}/kg</strong></p>}</div>)}</div>
+        <div className="mt-6 rounded-2xl bg-[#eaf5e9] p-5 text-sm leading-7 text-[#103f2c]"><strong>FarmDtech advisory:</strong> {top[0].market}, {top[0].state} has the highest forecast price {state === 'all' ? 'among the available markets' : 'in the selected state'}{cost !== null ? ' after subtracting your entered per-kg transport cost' : ''}. Compare actual buyer offers, transport distance, handling losses, and market fees before deciding where to sell. {top[0].change_percent > 0 ? 'The model estimates a price increase from the reference month, but this is not a guarantee.' : 'The model does not predict a price increase at this market, so compare current offers carefully.'}</div>
+        <p className="mt-4 text-xs leading-6 text-slate-500">Ranking is based on forecast price per kilogram{cost !== null ? ' minus the same user-entered transport cost for every market' : ''}. A uniform cost does not change market order. This is not a personalized profitability estimate; no route distances, buyer demand, or market-specific fees are included.</p>
+      </div> : <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500">No forecast records match this selection.</div>)}
+    </DataState></div>
+  </div>;
 }
 
 function ComingSoon({ icon, eyebrow, title, body }: { icon: ReactNode; eyebrow: string; title: string; body: string }) { return <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8"><div className="relative overflow-hidden rounded-[2rem] bg-[#103f2c] px-7 py-16 text-center text-white sm:px-16"><div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#55a936]/20 blur-3xl" /><div className="relative mx-auto max-w-2xl"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#55a936] text-[#103f2c]">{icon}</div><div className="mt-8 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[.16em] text-[#d8efc8]"><span className="h-1.5 w-1.5 rounded-full bg-[#d89b24]" />Coming soon</div><p className="mt-7 text-sm font-bold uppercase tracking-[.18em] text-[#b9e09d]">{eyebrow}</p><h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">{title}</h1><p className="mt-5 text-lg leading-8 text-slate-300">{body}</p><Link to="/dashboard" className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 font-bold text-[#103f2c] transition hover:bg-[#d8efc8]">Explore available data <ArrowRight size={17} /></Link></div></div></div>; }
