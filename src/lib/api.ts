@@ -59,3 +59,54 @@ export function formatDate(value: string): string {
 export function formatCrop(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 }
+
+// ── Forecast API ────────────────────────────────────────────────────────────
+
+export type ForecastRecord = {
+  market: string;
+  state: string;
+  last_month_price_ngn_per_kg: number;
+  forecasted_price_ngn_per_kg: number;
+  percent_change: number;
+  forecast_month: string;
+  last_month: string;
+  crop?: string;
+};
+
+export type ForecastResponse = {
+  crop: string;
+  forecast_month: string;
+  last_month: string;
+  count: number;
+  forecasts: ForecastRecord[];
+};
+
+function isForecastResponse(value: unknown): value is ForecastResponse {
+  if (!value || typeof value !== 'object') return false;
+  const r = value as Partial<ForecastResponse>;
+  return typeof r.crop === 'string' && Array.isArray(r.forecasts);
+}
+
+const forecastCache = new Map<string, { data: ForecastResponse; expiresAt: number }>();
+const forecastRequests = new Map<string, Promise<ForecastResponse>>();
+
+export async function fetchForecast(crop: string): Promise<ForecastResponse> {
+  const key = crop.toLowerCase();
+  const cached = forecastCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+  const inflight = forecastRequests.get(key);
+  if (inflight) return inflight;
+
+  const request = fetch(`${API_BASE_URL}/forecast?crop=${encodeURIComponent(key)}`)
+    .then(async (response) => {
+      if (!response.ok) throw new Error(`Forecast request failed with status ${response.status}`);
+      const payload: unknown = await response.json();
+      if (!isForecastResponse(payload)) throw new Error('Forecast response was not in the expected format.');
+      forecastCache.set(key, { data: payload, expiresAt: Date.now() + 120_000 });
+      return payload;
+    })
+    .finally(() => forecastRequests.delete(key));
+
+  forecastRequests.set(key, request);
+  return request;
+}

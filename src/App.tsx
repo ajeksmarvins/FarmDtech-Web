@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { BrowserRouter, Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
-import { ArrowRight, BarChart3, Check, ChevronDown, CircleAlert, Clock3, CloudSun, Database, Filter, Leaf, LineChart, LoaderCircle, MapPin, Menu, MessageCircle, Search, ShieldCheck, Sparkles, TrendingUp, X } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, BarChart3, Check, CircleAlert, Clock3, CloudSun, Database, Filter, Leaf, LineChart, LoaderCircle, MapPin, Menu, MessageCircle, Minus, Search, ShieldCheck, Sparkles, TrendingUp, X } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, Legend, Line, LineChart as RechartsLineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { CropPrice, fetchPrices, formatCrop, formatDate, formatNaira } from '@/lib/api';
+import { CropPrice, ForecastRecord, ForecastResponse, fetchForecast, fetchPrices, formatCrop, formatDate, formatNaira } from '@/lib/api';
 
 const heroImage = 'https://images.pexels.com/photos/38668659/pexels-photo-38668659.jpeg?auto=compress&cs=tinysrgb&h=650&w=940';
 const navItems = [{ label: 'Dashboard', to: '/dashboard' }, { label: 'Market Prices', to: '/prices' }, { label: 'Price Trends', to: '/trends' }, { label: 'Forecasts', to: '/forecasts' }, { label: 'Advisory', to: '/advisory' }];
 
 function App() {
-  return <BrowserRouter><div className="min-h-screen bg-[#f7faf7] text-slate-900"><Header /><main><Routes><Route path="/" element={<Home />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="/prices" element={<Prices />} /><Route path="/trends" element={<Trends />} /><Route path="/forecasts" element={<ComingSoon icon={<TrendingUp />} eyebrow="Forecast intelligence" title="Plan your next move with confidence." body="Our forecasting engine is being prepared to turn historical crop prices into practical next-month selling signals." />} /><Route path="/advisory" element={<ComingSoon icon={<MessageCircle />} eyebrow="AI crop advisory" title="Your next best farming decision, in one conversation." body="FarmDtech Advisory will bring trusted crop, price, and market context together in a simple assistant for your business." />} /><Route path="*" element={<Home />} /></Routes></main><Footer /></div></BrowserRouter>;
+  return <BrowserRouter><div className="min-h-screen bg-[#f7faf7] text-slate-900"><Header /><main><Routes><Route path="/" element={<Home />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="/prices" element={<Prices />} /><Route path="/trends" element={<Trends />} /><Route path="/forecasts" element={<Forecasts />} /><Route path="/advisory" element={<ComingSoon icon={<MessageCircle />} eyebrow="AI crop advisory" title="Your next best farming decision, in one conversation." body="FarmDtech Advisory will bring trusted crop, price, and market context together in a simple assistant for your business." />} /><Route path="*" element={<Home />} /></Routes></main><Footer /></div></BrowserRouter>;
 }
 
 function Header() {
@@ -38,6 +38,222 @@ function Empty({ text }: { text: string }) { return <div className="flex h-full 
 function Prices() { const { data, loading, error } = usePrices(); const [query, setQuery] = useState(''); const [crop, setCrop] = useState('all'); const [state, setState] = useState('all'); const [page, setPage] = useState(1); const perPage = 12; const prices = useMemo(() => (data?.prices ?? []).filter((item) => (crop === 'all' || item.crop.toLowerCase() === crop) && (state === 'all' || item.state === state) && [item.crop, item.market, item.state].join(' ').toLowerCase().includes(query.toLowerCase())).sort((a, b) => b.date.localeCompare(a.date)), [data, crop, state, query]); const states = [...new Set((data?.prices ?? []).map((item) => item.state))].sort(); const shown = prices.slice((page - 1) * perPage, page * perPage); return <div className="mx-auto max-w-7xl px-5 py-12 lg:px-8"><PageHeader eyebrow="Market prices" title="Know the going rate." text="Browse historical records in Nigerian naira per kilogram. Every entry is clearly labelled as observed or estimated." /><DataState loading={loading} error={error}><div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6"><div className="flex flex-col gap-3 lg:flex-row"><div className="relative flex-1"><Search className="absolute left-3 top-3 text-slate-400" size={18} /><input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Search crop, market, or state" className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-[#126b42]" /></div><div className="flex gap-3"><select value={crop} onChange={(event) => { setCrop(event.target.value); setPage(1); }} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm capitalize outline-none focus:border-[#126b42]"><option value="all">All crops</option><option value="maize">Maize</option><option value="rice">Rice</option><option value="beans">Beans</option></select><select value={state} onChange={(event) => { setState(event.target.value); setPage(1); }} className="max-w-[150px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#126b42]"><option value="all">All states</option>{states.map((item) => <option key={item}>{item}</option>)}</select></div></div><div className="mt-6 overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead><tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-400"><th className="px-3 py-3 font-semibold">Crop</th><th className="px-3 py-3 font-semibold">Market</th><th className="px-3 py-3 font-semibold">State</th><th className="px-3 py-3 font-semibold">Date</th><th className="px-3 py-3 font-semibold">Price</th><th className="px-3 py-3 font-semibold">Price type</th></tr></thead><tbody>{shown.map((item, index) => <tr key={`${item.market_id}-${item.date}-${index}`} className="border-b border-slate-100 last:border-0 hover:bg-[#f7faf7]"><td className="px-3 py-4 font-bold capitalize text-[#103f2c]">{formatCrop(item.crop)}</td><td className="px-3 py-4 text-slate-600">{item.market}</td><td className="px-3 py-4 text-slate-600">{item.state}</td><td className="px-3 py-4 text-slate-500">{formatDate(item.date)}</td><td className="px-3 py-4 font-bold text-[#126b42]">{formatNaira(item.price_ngn_per_kg)} <span className="font-normal text-xs text-slate-400">/ kg</span></td><td className="px-3 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-bold ${item.price_kind.toLowerCase() === 'observed' ? 'bg-[#e6f4e4] text-[#126b42]' : 'bg-[#fff4d9] text-[#9a6709]'}`}>{formatCrop(item.price_kind)}</span></td></tr>)}</tbody></table>{shown.length === 0 && <Empty text="No records match these filters." />}</div><div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-5 text-sm text-slate-500"><span>{prices.length.toLocaleString()} matching records</span><div className="flex gap-2"><button disabled={page === 1} onClick={() => setPage(page - 1)} className="rounded-lg border border-slate-200 px-3 py-2 disabled:opacity-40">Previous</button><span className="px-2 py-2 font-semibold text-[#126b42]">Page {page} of {Math.max(1, Math.ceil(prices.length / perPage))}</span><button disabled={page >= Math.ceil(prices.length / perPage)} onClick={() => setPage(page + 1)} className="rounded-lg border border-slate-200 px-3 py-2 disabled:opacity-40">Next</button></div></div></div></DataState></div>; }
 
 function Trends() { const { data, loading, error } = usePrices(); const [crop, setCrop] = useState('all'); const prices = data?.prices ?? []; const chartData = useMemo(() => { const selected = crop === 'all' ? prices : prices.filter((item) => item.crop.toLowerCase() === crop); const grouped = selected.reduce<Record<string, { date: string; total: number; count: number }>>((acc, item) => { const key = item.date.slice(0, 10); acc[key] ??= { date: key, total: 0, count: 0 }; acc[key].total += item.price_ngn_per_kg; acc[key].count += 1; return acc; }, {}); return Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date)).map((item) => ({ date: item.date, price: Math.round(item.total / item.count) })).slice(-60); }, [prices, crop]); return <div className="mx-auto max-w-7xl px-5 py-12 lg:px-8"><PageHeader eyebrow="Price trends" title="See the market move." text="Follow average recorded prices over time and compare the direction of the crops that matter to you." /><DataState loading={loading} error={error}><div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-8"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><h2 className="font-bold text-[#103f2c]">Average price by date</h2><p className="mt-1 text-sm text-slate-500">Grouped from available records · ₦ per kilogram</p></div><div className="flex items-center gap-2"><Filter size={17} className="text-slate-400" /><select value={crop} onChange={(event) => setCrop(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm capitalize outline-none focus:border-[#126b42]"><option value="all">All crops</option><option value="maize">Maize</option><option value="rice">Rice</option><option value="beans">Beans</option></select></div></div><div className="mt-8 h-[420px]">{chartData.length > 1 ? <ResponsiveContainer width="100%" height="100%"><RechartsLineChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} /><XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={28} /><YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(value) => `₦${value}`} width={60} /><Tooltip labelFormatter={(value) => formatDate(String(value))} formatter={(value: number) => [formatNaira(value), 'Average price']} /><Legend /><Line name="Average price" type="monotone" dataKey="price" stroke="#126b42" strokeWidth={3} dot={false} activeDot={{ r: 5 }} /></RechartsLineChart></ResponsiveContainer> : <Empty text="Not enough records for a trend yet." />}</div><div className="mt-6 flex items-start gap-3 rounded-xl bg-[#f7faf7] p-4 text-sm text-slate-600"><Clock3 size={18} className="mt-0.5 shrink-0 text-[#55a936]" /><p>These are historical records from the connected source, not guaranteed live market quotes. Use the date and price type labels to understand the context.</p></div></div></DataState></div>; }
+
+// ── Forecasts ────────────────────────────────────────────────────────────────
+
+function useForecast(crop: string) {
+  const [data, setData] = useState<ForecastResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    setLoading(true);
+    setError('');
+    setData(null);
+    fetchForecast(crop)
+      .then(setData)
+      .catch(() => setError('We could not reach the forecast service. It may be waking up on Render — please wait a moment and try again.'))
+      .finally(() => setLoading(false));
+  }, [crop]);
+  return { data, loading, error };
+}
+
+function ChangeCell({ pct }: { pct: number }) {
+  const abs = Math.abs(pct).toFixed(1);
+  if (pct > 0.05) return <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4d9] px-2.5 py-1 text-xs font-bold text-[#9a6709]"><ArrowUp size={12} />+{abs}%</span>;
+  if (pct < -0.05) return <span className="inline-flex items-center gap-1 rounded-full bg-[#fde9e9] px-2.5 py-1 text-xs font-bold text-[#b00020]"><ArrowDown size={12} />{abs}%</span>;
+  return <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-500"><Minus size={12} />Stable</span>;
+}
+
+function Forecasts() {
+  const [crop, setCrop] = useState<'maize' | 'rice' | 'beans'>('maize');
+  const [stateFilter, setStateFilter] = useState('all');
+  const [marketQuery, setMarketQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const perPage = 12;
+  const { data, loading, error } = useForecast(crop);
+
+  const states = useMemo(
+    () => [...new Set((data?.forecasts ?? []).map((item) => item.state))].sort(),
+    [data],
+  );
+
+  const filtered: ForecastRecord[] = useMemo(
+    () =>
+      (data?.forecasts ?? []).filter(
+        (item) =>
+          (stateFilter === 'all' || item.state === stateFilter) &&
+          item.market.toLowerCase().includes(marketQuery.toLowerCase()),
+      ),
+    [data, stateFilter, marketQuery],
+  );
+
+  const shown = filtered.slice((page - 1) * perPage, page * perPage);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
+
+  function handleCropChange(value: 'maize' | 'rice' | 'beans') {
+    setCrop(value);
+    setStateFilter('all');
+    setMarketQuery('');
+    setPage(1);
+  }
+
+  const forecastMonthLabel = data?.forecast_month
+    ? formatDate(data.forecast_month + '-01')
+    : 'Next month';
+  const lastMonthLabel = data?.last_month
+    ? formatDate(data.last_month + '-01')
+    : 'Last month';
+
+  return (
+    <div className="mx-auto max-w-7xl px-5 py-12 lg:px-8">
+      <PageHeader
+        eyebrow="Forecast intelligence"
+        title="Plan your next move with confidence."
+        text={`XGBoost-model price forecasts for ${forecastMonthLabel}, generated from historical crop price data.`}
+      />
+
+      {/* Disclaimer banner */}
+      <div className="mb-8 flex items-start gap-3 rounded-2xl border border-[#f0d8a0] bg-[#fffaf0] p-5">
+        <AlertTriangle size={20} className="mt-0.5 shrink-0 text-[#b7790b]" />
+        <div className="text-sm leading-6 text-slate-700">
+          <span className="font-bold text-[#9a6709]">Forecast disclaimer:</span>{' '}
+          These figures are generated by an XGBoost machine-learning model trained on historical
+          estimated price data. They are{' '}
+          <span className="font-semibold">not live market quotes, guaranteed prices, or
+          financial advice.</span>{' '}
+          Actual market prices may differ. Use these forecasts as one input alongside your own
+          local knowledge before making selling decisions.
+        </div>
+      </div>
+
+      {/* Crop selector */}
+      <div className="mb-7 flex flex-wrap items-center gap-3">
+        <span className="text-sm font-semibold text-slate-600">Forecast for</span>
+        {(['maize', 'rice', 'beans'] as const).map((value) => (
+          <button
+            key={value}
+            onClick={() => handleCropChange(value)}
+            className={`rounded-full px-4 py-2 text-sm font-bold capitalize transition ${crop === value ? 'bg-[#126b42] text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:ring-[#126b42]'}`}
+          >
+            {value}
+          </button>
+        ))}
+      </div>
+
+      {loading && (
+        <div className="flex min-h-[280px] items-center justify-center rounded-2xl border border-slate-200 bg-white">
+          <div className="text-center">
+            <LoaderCircle className="mx-auto animate-spin text-[#126b42]" />
+            <p className="mt-3 text-sm text-slate-500">Loading forecast data…</p>
+            <p className="mt-1 text-xs text-slate-400">The service may be waking up — this can take up to 30 seconds.</p>
+          </div>
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="rounded-2xl border border-[#f0d8a0] bg-[#fffaf0] p-8 text-center">
+          <CircleAlert className="mx-auto text-[#b7790b]" />
+          <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-slate-600">{error}</p>
+          <button
+            onClick={() => handleCropChange(crop)}
+            className="mt-4 rounded-full bg-[#126b42] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#0b5131]"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {!loading && !error && data && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+          {/* Filters */}
+          <div className="flex flex-col gap-3 lg:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 text-slate-400" size={18} />
+              <input
+                value={marketQuery}
+                onChange={(e) => { setMarketQuery(e.target.value); setPage(1); }}
+                placeholder="Search by market name"
+                className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-[#126b42]"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Filter size={17} className="text-slate-400" />
+              <select
+                value={stateFilter}
+                onChange={(e) => { setStateFilter(e.target.value); setPage(1); }}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#126b42]"
+              >
+                <option value="all">All states</option>
+                {states.map((s) => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Meta row */}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#f7faf7] px-4 py-3 text-xs text-slate-500">
+            <span><span className="font-semibold text-[#103f2c]">{filtered.length.toLocaleString()}</span> forecast records</span>
+            <span className="flex items-center gap-1.5"><Clock3 size={13} className="text-[#55a936]" />Forecast period: <span className="font-semibold">{forecastMonthLabel}</span> · Reference: <span className="font-semibold">{lastMonthLabel}</span></span>
+          </div>
+
+          {/* Table */}
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full min-w-[780px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-xs uppercase tracking-wider text-slate-400">
+                  <th className="px-3 py-3 font-semibold">Market</th>
+                  <th className="px-3 py-3 font-semibold">State</th>
+                  <th className="px-3 py-3 font-semibold">{lastMonthLabel} Price</th>
+                  <th className="px-3 py-3 font-semibold">{forecastMonthLabel} Forecast</th>
+                  <th className="px-3 py-3 font-semibold">Expected change</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((item, idx) => (
+                  <tr key={`${item.market}-${item.state}-${idx}`} className="border-b border-slate-100 last:border-0 hover:bg-[#f7faf7]">
+                    <td className="px-3 py-4 font-bold text-[#103f2c]">{item.market}</td>
+                    <td className="px-3 py-4 text-slate-600">{item.state}</td>
+                    <td className="px-3 py-4 text-slate-600">
+                      {formatNaira(item.last_month_price_ngn_per_kg)}
+                      <span className="ml-1 text-xs text-slate-400">/ kg</span>
+                    </td>
+                    <td className="px-3 py-4 font-bold text-[#126b42]">
+                      {formatNaira(item.forecasted_price_ngn_per_kg)}
+                      <span className="ml-1 text-xs font-normal text-slate-400">/ kg</span>
+                    </td>
+                    <td className="px-3 py-4">
+                      <ChangeCell pct={item.percent_change} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {shown.length === 0 && (
+              <div className="flex min-h-[120px] items-center justify-center text-sm text-slate-400">
+                No forecast records match these filters.
+              </div>
+            )}
+          </div>
+
+          {/* Pagination */}
+          <div className="mt-5 flex items-center justify-between border-t border-slate-100 pt-5 text-sm text-slate-500">
+            <span>{filtered.length.toLocaleString()} matching forecasts</span>
+            <div className="flex gap-2">
+              <button disabled={page === 1} onClick={() => setPage(page - 1)} className="rounded-lg border border-slate-200 px-3 py-2 disabled:opacity-40">Previous</button>
+              <span className="px-2 py-2 font-semibold text-[#126b42]">Page {page} of {totalPages}</span>
+              <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="rounded-lg border border-slate-200 px-3 py-2 disabled:opacity-40">Next</button>
+            </div>
+          </div>
+
+          {/* Footer note */}
+          <div className="mt-5 flex items-start gap-2 rounded-xl border border-slate-100 bg-[#f7faf7] p-4 text-xs leading-5 text-slate-500">
+            <ShieldCheck size={15} className="mt-0.5 shrink-0 text-[#55a936]" />
+            Model: XGBoost · Trained on historical estimated prices · Not a guarantee of future market prices
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ComingSoon({ icon, eyebrow, title, body }: { icon: ReactNode; eyebrow: string; title: string; body: string }) { return <div className="mx-auto max-w-7xl px-5 py-16 lg:px-8"><div className="relative overflow-hidden rounded-[2rem] bg-[#103f2c] px-7 py-16 text-center text-white sm:px-16"><div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#55a936]/20 blur-3xl" /><div className="relative mx-auto max-w-2xl"><div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#55a936] text-[#103f2c]">{icon}</div><div className="mt-8 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[.16em] text-[#d8efc8]"><span className="h-1.5 w-1.5 rounded-full bg-[#d89b24]" />Coming soon</div><p className="mt-7 text-sm font-bold uppercase tracking-[.18em] text-[#b9e09d]">{eyebrow}</p><h1 className="mt-3 text-4xl font-bold tracking-tight sm:text-5xl">{title}</h1><p className="mt-5 text-lg leading-8 text-slate-300">{body}</p><Link to="/dashboard" className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 font-bold text-[#103f2c] transition hover:bg-[#d8efc8]">Explore available data <ArrowRight size={17} /></Link></div></div></div>; }
 
