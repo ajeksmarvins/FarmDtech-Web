@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import AdvisoryChat from './components/AdvisoryChat';
 import { BrowserRouter, Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, BarChart3, Check, CircleAlert, Clock3, CloudSun, Database, Filter, LineChart, LoaderCircle, MapPin, Menu, MessageCircle, Minus, Search, ShieldCheck, Sparkles, TrendingUp, X } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, Legend, Line, LineChart as RechartsLineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -8,7 +9,7 @@ const heroImage = 'https://images.pexels.com/photos/38668659/pexels-photo-386686
 const navItems = [{ label: 'Dashboard', to: '/dashboard' }, { label: 'Market Prices', to: '/prices' }, { label: 'Price Trends', to: '/trends' }, { label: 'Forecasts', to: '/forecasts' }, { label: 'Advisory', to: '/advisory' }];
 
 function App() {
-  return <BrowserRouter><div className="min-h-screen bg-[#f7faf7] text-slate-900"><Header /><main><Routes><Route path="/" element={<Home />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="/prices" element={<Prices />} /><Route path="/trends" element={<Trends />} /><Route path="/forecasts" element={<Forecasts />} /><Route path="/advisory" element={<Advisory />} /><Route path="*" element={<Home />} /></Routes></main><Footer /></div></BrowserRouter>;
+  return <BrowserRouter><div className="min-h-screen bg-[#f7faf7] text-slate-900"><Header /><main><Routes><Route path="/" element={<Home />} /><Route path="/dashboard" element={<Dashboard />} /><Route path="/prices" element={<Prices />} /><Route path="/trends" element={<Trends />} /><Route path="/forecasts" element={<Forecasts />} /><Route path="/advisory" element={<AdvisoryChat />} /><Route path="*" element={<Home />} /></Routes></main><Footer /></div></BrowserRouter>;
 }
 
 function Header() {
