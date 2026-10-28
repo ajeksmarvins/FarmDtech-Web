@@ -10,6 +10,16 @@ export default function AdvisoryChat() {
   const [language,setLanguage] = useState('auto');
   const [busy,setBusy] = useState(false);
   const [notice,setNotice] = useState('');
+  const [availableVoices,setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice,setSelectedVoice] = useState('auto');
+  const [speechRate,setSpeechRate] = useState(0.95);
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) return;
+    const refresh = () => setAvailableVoices(window.speechSynthesis.getVoices());
+    refresh();
+    window.speechSynthesis.addEventListener('voiceschanged', refresh);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', refresh);
+  }, []);
   const bottom = useRef<HTMLDivElement>(null);
   useEffect(()=>{bottom.current?.scrollIntoView({behavior:'smooth',block:'nearest'});},[messages]);
   async function send(value?: string) {
@@ -37,26 +47,35 @@ export default function AdvisoryChat() {
   function speak(text:string) {
     if (!('speechSynthesis' in window)) {setNotice('Speech playback is not available in this browser.');return;}
     window.speechSynthesis.cancel();
+    setNotice('');
     const spoken = text
-      .replace(/₦\s*([\d,]+(?:\.\d+)?)\s*\/\s*kg/gi, (_, amount:string) => `${Number(amount.replace(/,/g, '')).toLocaleString('en-NG')} naira per kilogram`)
-      .replace(/₦\s*([\d,]+(?:\.\d+)?)/g, (_, amount:string) => `${Number(amount.replace(/,/g, '')).toLocaleString('en-NG')} naira`)
-      .replace(/\b(20\d{2})-(\d{2})-(\d{2})\b/g, (match:string, y:string, m:string, d:string) => {
+      .replace(/\\[([^\\]]+)\\]\\([^)]+\\)/g, '$1')
+      .replace(/[*_`#>]/g, '')
+      .replace(/₦\\s*([\\d,]+(?:\\.\\d+)?)\\s*\\/\\s*kg/gi, (_, amount:string) => `${Number(amount.replace(/,/g, '')).toLocaleString('en-NG')} naira per kilogram`)
+      .replace(/₦\\s*([\\d,]+(?:\\.\\d+)?)/g, (_, amount:string) => `${Number(amount.replace(/,/g, '')).toLocaleString('en-NG')} naira`)
+      .replace(/\\b(20\\d{2})-(\\d{2})-(\\d{2})\\b/g, (match:string, y:string, m:string, d:string) => {
         const date = new Date(Number(y), Number(m)-1, Number(d));
         return Number.isNaN(date.getTime()) ? match : new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric'}).format(date);
       })
-      .replace(/\bXGBoost\b/g, 'X G Boost')
-      .replace(/\bkg\b/g, 'kilograms')
-      .replace(/\n{2,}/g, '. ')
-      .replace(/\n/g, '. ');
+      .replace(/\\bXGBoost\\b/gi, 'X G Boost')
+      .replace(/\\bkg\\b/gi, 'kilograms')
+      .replace(/\\bNGN\\b/g, 'Nigerian naira')
+      .replace(/\\n\\s*[-•]\\s*/g, '. ')
+      .replace(/\\n+/g, '. ')
+      .replace(/\\.{2,}/g, '.')
+      .trim();
     const u = new SpeechSynthesisUtterance(spoken);
-    const preferredLang = language === 'auto' ? 'en-NG' : language;
     const voices = window.speechSynthesis.getVoices();
-    const voice = voices.find(v=>v.lang.toLowerCase()===preferredLang.toLowerCase())
-      ?? voices.find(v=>v.lang.toLowerCase()==='en-ng')
-      ?? voices.find(v=>v.lang.toLowerCase().startsWith('en-'))
-      ?? voices.find(v=>v.lang.toLowerCase().startsWith('en'));
-    if (voice) {u.voice=voice;u.lang=voice.lang;} else {u.lang='en-GB';}
-    u.rate=0.88;
+    const preferredLang = language === 'auto' ? 'en-NG' : language;
+    const preferred = preferredLang.toLowerCase();
+    const voice = (selectedVoice !== 'auto' ? voices.find(v => `${v.name}|${v.lang}` === selectedVoice) : undefined)
+      ?? voices.find(v => v.lang.toLowerCase() === preferred)
+      ?? voices.find(v => v.lang.toLowerCase() === 'en-ng')
+      ?? voices.find(v => v.lang.toLowerCase() === 'en-us' && v.localService)
+      ?? voices.find(v => v.lang.toLowerCase() === 'en-gb' && v.localService)
+      ?? voices.find(v => v.lang.toLowerCase().startsWith('en'));
+    if (voice) {u.voice=voice;u.lang=voice.lang;} else {u.lang=preferredLang;}
+    u.rate=speechRate;
     u.pitch=1;
     u.onerror=()=>setNotice('Speech playback could not complete on this device.');
     window.speechSynthesis.speak(u);
@@ -74,7 +93,7 @@ export default function AdvisoryChat() {
         </div>
         <div className="border-t border-slate-100 bg-white p-4"><form onSubmit={e=>{e.preventDefault();void send();}} className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-[#f9fbf9] p-2 focus-within:border-[#126b42]"><input aria-label="Ask a farming question" className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm outline-none" placeholder="Ask about a crop or market..." value={input} onChange={e=>setInput(e.target.value)} maxLength={500}/><button type="button" onClick={microphone} title="Voice input status" aria-label="Voice input status" className="rounded-xl p-2 text-slate-500 hover:bg-slate-100"><Mic size={19}/></button><button type="submit" disabled={!input.trim()||busy} aria-label="Send message" className="rounded-xl bg-[#126b42] p-2.5 text-white disabled:opacity-40"><Send size={18}/></button></form>{notice&&<p role="status" className="mt-2 text-xs text-amber-700">{notice}</p>}<p className="mt-2 text-center text-[11px] text-slate-400">Model forecasts are estimates, not live market quotes or guaranteed prices.</p></div>
       </div>
-      <aside className="space-y-4"><div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="mb-3 flex items-center gap-2 text-sm font-bold text-[#103f2c]"><Languages size={18}/> Language preferences</div><select value={language} onChange={e=>setLanguage(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm"><option value="auto">Auto (follow your language)</option><option value="en-NG">English</option><option value="ha-NG">Hausa (voice unverified)</option><option value="yo-NG">Yoruba (voice unverified)</option><option value="ig-NG">Igbo (voice unverified)</option><option value="pcm-NG">Nigerian Pidgin (voice unverified)</option></select><p className="mt-3 text-xs leading-5 text-slate-500">Gemini can attempt English, Pidgin, Hausa, Yoruba and Igbo. Speech playback depends on device voices; microphone recognition is not active.</p></div><div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="mb-3 flex items-center gap-2 text-sm font-bold text-[#103f2c]"><Sparkles size={18}/> Try asking</div><div className="space-y-2">{examples.map(e=><button key={e} onClick={()=>void send(e)} disabled={busy} className="block w-full rounded-xl border border-slate-100 bg-[#f7faf7] px-3 py-3 text-left text-sm text-slate-700 hover:border-[#a8d5b0] disabled:opacity-50">{e}</button>)}</div></div><div className="rounded-2xl bg-[#eaf5e9] p-5 text-sm leading-6 text-[#103f2c]"><div className="mb-2 flex items-center gap-2 font-bold"><Database size={18}/> Data transparency</div>Gemini can answer general farming questions and reference saved XGBoost forecasts for maize, rice and beans. Forecasts are not live buyer offers.</div></aside>
+      <aside className="space-y-4"><div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="mb-3 flex items-center gap-2 text-sm font-bold text-[#103f2c]"><Languages size={18}/> Language preferences</div><select value={language} onChange={e=>setLanguage(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm"><option value="auto">Auto (follow your language)</option><option value="en-NG">English</option><option value="ha-NG">Hausa (voice unverified)</option><option value="yo-NG">Yoruba (voice unverified)</option><option value="ig-NG">Igbo (voice unverified)</option><option value="pcm-NG">Nigerian Pidgin (voice unverified)</option></select><label className="mt-4 block text-xs font-semibold text-slate-600" htmlFor="voice-choice">Listen voice</label><select id="voice-choice" value={selectedVoice} onChange={e=>setSelectedVoice(e.target.value)} className="mt-2 w-full min-w-0 rounded-xl border border-slate-200 bg-white p-3 text-sm"><option value="auto">Automatic (prefer Nigerian English)</option>{availableVoices.filter(v=>v.lang.toLowerCase().startsWith('en') || v.lang.toLowerCase()===language.toLowerCase()).map(v=><option key={`${v.name}|${v.lang}`} value={`${v.name}|${v.lang}`}>{v.name} ({v.lang})</option>)}</select><label className="mt-4 block text-xs font-semibold text-slate-600" htmlFor="speech-rate">Speaking speed: {speechRate.toFixed(2)}×</label><input id="speech-rate" type="range" min="0.8" max="1.1" step="0.05" value={speechRate} onChange={e=>setSpeechRate(Number(e.target.value))} className="mt-2 w-full accent-[#126b42]"/><p className="mt-3 text-xs leading-5 text-slate-500">Try the available voices to find the clearest pronunciation. A Nigerian accent is only available if your device provides a suitable voice. Microphone recognition is not active.</p></div><div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="mb-3 flex items-center gap-2 text-sm font-bold text-[#103f2c]"><Sparkles size={18}/> Try asking</div><div className="space-y-2">{examples.map(e=><button key={e} onClick={()=>void send(e)} disabled={busy} className="block w-full rounded-xl border border-slate-100 bg-[#f7faf7] px-3 py-3 text-left text-sm text-slate-700 hover:border-[#a8d5b0] disabled:opacity-50">{e}</button>)}</div></div><div className="rounded-2xl bg-[#eaf5e9] p-5 text-sm leading-6 text-[#103f2c]"><div className="mb-2 flex items-center gap-2 font-bold"><Database size={18}/> Data transparency</div>Gemini can answer general farming questions and reference saved XGBoost forecasts for maize, rice and beans. Forecasts are not live buyer offers.</div></aside>
     </div>
   </section>;
 }
