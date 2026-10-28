@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Bot, Send, Sparkles, RotateCcw, LoaderCircle, Database, Mic, Volume2, Languages } from 'lucide-react';
 
 type Message = { role: 'assistant' | 'user'; text: string };
@@ -12,6 +12,59 @@ type BrowserRecognition = {
 type SpeechBrowser = Window & { SpeechRecognition?: new () => BrowserRecognition; webkitSpeechRecognition?: new () => BrowserRecognition };
 const welcome = 'Welcome to FarmDtech! Ask me about maize, rice or beans forecasts, or say something like “Where should I sell maize in Borno?” I use saved model forecasts, not live market prices.';
 const examples = ['Where should I sell maize?', 'Compare rice markets in Kano', 'Which beans market has the highest forecast?'];
+// Render common Gemini Markdown as safe React elements, without injecting HTML.
+function inlineMarkdown(text: string): ReactNode[] {
+  const tokens = text.split(/(\\*\\*[^*\\n]+\\*\\*|\\*[^*\\n]+\\*|\\[[^\\]\\n]+\\]\\(https?:\\/\\/[^)\\s]+\\))/g);
+  return tokens.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) return <strong key={index} className="font-semibold">{part.slice(2,-2)}</strong>;
+    if (part.startsWith('*') && part.endsWith('*')) return <em key={index}>{part.slice(1,-1)}</em>;
+    const link = part.match(/^\\[([^\\]]+)\\]\\((https?:\\/\\/[^)\\s]+)\\)$/);
+    if (link) return <a key={index} href={link[2]} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{link[1]}</a>;
+    return part;
+  });
+}
+function MessageText({ text }: { text: string }) {
+  const lines = text.replace(/\\r\\n/g,'\\n').split('\\n');
+  const blocks: ReactNode[] = [];
+  let list: { ordered: boolean; items: string[] } | null = null;
+  let paragraph: string[] = [];
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    blocks.push(<p key={blocks.length} className="my-2 leading-6">{inlineMarkdown(paragraph.join(' '))}</p>);
+    paragraph = [];
+  };
+  const flushList = () => {
+    if (!list) return;
+    const children = list.items.map((item, i) => <li key={i} className="pl-1">{inlineMarkdown(item)}</li>);
+    blocks.push(list.ordered
+      ? <ol key={blocks.length} className="my-2 list-decimal space-y-1 pl-5">{children}</ol>
+      : <ul key={blocks.length} className="my-2 list-disc space-y-1 pl-5">{children}</ul>);
+    list = null;
+  };
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) {flushParagraph();flushList();continue;}
+    const heading = line.match(/^#{1,4}\\s+(.+)$/);
+    if (heading) {
+      flushParagraph();flushList();
+      blocks.push(<h3 key={blocks.length} className="mb-1 mt-3 font-bold text-[#103f2c]">{inlineMarkdown(heading[1])}</h3>);
+      continue;
+    }
+    const item = line.match(/^(\\d+[.)]|[-•])\\s+(.+)$/);
+    if (item) {
+      flushParagraph();
+      const ordered = /^\\d/.test(item[1]);
+      if (list && list.ordered !== ordered) flushList();
+      if (!list) list = { ordered, items: [] };
+      list.items.push(item[2]);
+      continue;
+    }
+    flushList();
+    paragraph.push(line);
+  }
+  flushParagraph();flushList();
+  return <div className="min-w-0 break-words [overflow-wrap:anywhere]">{blocks}</div>;
+}
 export default function AdvisoryChat() {
   const [messages,setMessages] = useState<Message[]>([{role:'assistant',text:welcome}]);
   const [input,setInput] = useState('');
@@ -128,7 +181,7 @@ export default function AdvisoryChat() {
       <div className="flex min-w-0 min-h-[600px] flex-col overflow-hidden rounded-[1.6rem] border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4"><div className="rounded-xl bg-[#e8f5e8] p-2.5 text-[#126b42]"><Bot size={22}/></div><div className="min-w-0 flex-1"><h2 className="font-bold text-[#103f2c]">FarmDtech Forecast Assistant</h2><p className="text-xs text-slate-500">Gemini AI · Saved forecast context</p></div><button onClick={()=>{setMessages([{role:'assistant',text:welcome}]);setNotice('');}} title="New conversation" aria-label="New conversation" className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:text-[#126b42]"><RotateCcw size={17}/></button></div>
         <div className="flex-1 space-y-5 overflow-y-auto bg-[#fbfdfb] px-4 py-6 sm:px-6" style={{maxHeight:510}} aria-live="polite">
-          {messages.map((m,i)=><div key={i} className={`flex ${m.role==='user'?'justify-end':'justify-start'}`}><div className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-7 sm:max-w-[80%] ${m.role==='user'?'bg-[#126b42] text-white':'border border-slate-200 bg-white text-slate-700 shadow-sm'}`}><p className="whitespace-pre-line break-words [overflow-wrap:anywhere]">{m.text}</p>{m.role==='assistant'&&<button onClick={()=>speak(m.text)} className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#126b42]" title="Listen to response"><Volume2 size={14}/> Listen</button>}</div></div>)}
+          {messages.map((m,i)=><div key={i} className={`flex ${m.role==='user'?'justify-end':'justify-start'}`}><div className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-7 sm:max-w-[80%] ${m.role==='user'?'bg-[#126b42] text-white':'border border-slate-200 bg-white text-slate-700 shadow-sm'}`}><MessageText text={m.text}/>{m.role==='assistant'&&<button onClick={()=>speak(m.text)} className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#126b42]" title="Listen to response"><Volume2 size={14}/> Listen</button>}</div></div>)}
           {busy&&<div className="flex items-center gap-2 text-sm text-slate-500"><LoaderCircle size={16} className="animate-spin"/>Checking saved forecasts…</div>}
           <div ref={bottom}/>
         </div>
