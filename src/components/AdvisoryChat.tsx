@@ -43,8 +43,28 @@ export default function AdvisoryChat() {
   function speak(text:string) {
     if (!('speechSynthesis' in window)) {setNotice('Speech playback is not available in this browser.');return;}
     window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = language === 'auto' ? 'en-NG' : language;
+    const spoken = text
+      .replace(/₦\\s*([\\d,]+(?:\\.\\d+)?)\\s*\\/\\s*kg/gi, (_, amount:string) => `${Number(amount.replace(/,/g, '')).toLocaleString('en-NG')} naira per kilogram`)
+      .replace(/₦\\s*([\\d,]+(?:\\.\\d+)?)/g, (_, amount:string) => `${Number(amount.replace(/,/g, '')).toLocaleString('en-NG')} naira`)
+      .replace(/\\b(20\\d{2})-(\\d{2})-(\\d{2})\\b/g, (match:string, y:string, m:string, d:string) => {
+        const date = new Date(Number(y), Number(m)-1, Number(d));
+        return Number.isNaN(date.getTime()) ? match : new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric'}).format(date);
+      })
+      .replace(/\\bXGBoost\\b/g, 'X G Boost')
+      .replace(/\\bkg\\b/g, 'kilograms')
+      .replace(/\\n{2,}/g, '. ')
+      .replace(/\\n/g, '. ');
+    const u = new SpeechSynthesisUtterance(spoken);
+    const preferredLang = language === 'auto' ? 'en-NG' : language;
+    const voices = window.speechSynthesis.getVoices();
+    const voice = voices.find(v=>v.lang.toLowerCase()===preferredLang.toLowerCase())
+      ?? voices.find(v=>v.lang.toLowerCase()==='en-ng')
+      ?? voices.find(v=>v.lang.toLowerCase().startsWith('en-'))
+      ?? voices.find(v=>v.lang.toLowerCase().startsWith('en'));
+    if (voice) {u.voice=voice;u.lang=voice.lang;} else {u.lang='en-GB';}
+    u.rate=0.88;
+    u.pitch=1;
+    u.onerror=()=>setNotice('Speech playback could not complete on this device.');
     window.speechSynthesis.speak(u);
   }
   function microphone() {setNotice('Voice recognition for Nigerian languages is being tested. Please type your question for now; the microphone is not yet active.');}
