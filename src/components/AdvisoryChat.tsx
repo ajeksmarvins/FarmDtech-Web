@@ -14,17 +14,17 @@ const welcome = 'Welcome to FarmDtech! Ask me about maize, rice or beans forecas
 const examples = ['Where should I sell maize?', 'Compare rice markets in Kano', 'Which beans market has the highest forecast?'];
 // Render common Gemini Markdown as safe React elements, without injecting HTML.
 function inlineMarkdown(text: string): ReactNode[] {
-  const tokens = text.split(/(\\*\\*[^*\\n]+\\*\\*|\\*[^*\\n]+\\*|\\[[^\\]\\n]+\\]\\(https?:\\/\\/[^)\\s]+\\))/g);
+  const tokens = text.split(/(\*\*[^*\n]+\*\*|\*[^*\n]+\*|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\))/g);
   return tokens.map((part, index) => {
     if (part.startsWith('**') && part.endsWith('**')) return <strong key={index} className="font-semibold">{part.slice(2,-2)}</strong>;
     if (part.startsWith('*') && part.endsWith('*')) return <em key={index}>{part.slice(1,-1)}</em>;
-    const link = part.match(/^\\[([^\\]]+)\\]\\((https?:\\/\\/[^)\\s]+)\\)$/);
+    const link = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
     if (link) return <a key={index} href={link[2]} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">{link[1]}</a>;
     return part;
   });
 }
 function MessageText({ text }: { text: string }) {
-  const lines = text.replace(/\\r\\n/g,'\\n').split('\\n');
+  const lines = text.replace(/\r\n/g,'\n').split('\n');
   const blocks: ReactNode[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
   let paragraph: string[] = [];
@@ -44,16 +44,16 @@ function MessageText({ text }: { text: string }) {
   for (const raw of lines) {
     const line = raw.trim();
     if (!line) {flushParagraph();flushList();continue;}
-    const heading = line.match(/^#{1,4}\\s+(.+)$/);
+    const heading = line.match(/^#{1,4}\s+(.+)$/);
     if (heading) {
       flushParagraph();flushList();
       blocks.push(<h3 key={blocks.length} className="mb-1 mt-3 font-bold text-[#103f2c]">{inlineMarkdown(heading[1])}</h3>);
       continue;
     }
-    const item = line.match(/^(\\d+[.)]|[-•])\\s+(.+)$/);
+    const item = line.match(/^(\d+[.)]|[-•])\s+(.+)$/);
     if (item) {
       flushParagraph();
-      const ordered = /^\\d/.test(item[1]);
+      const ordered = /^\d/.test(item[1]);
       if (list && list.ordered !== ordered) flushList();
       if (!list) list = { ordered, items: [] };
       list.items.push(item[2]);
