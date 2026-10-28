@@ -38,16 +38,16 @@ export default function AdvisoryChat() {
     if (!('speechSynthesis' in window)) {setNotice('Speech playback is not available in this browser.');return;}
     window.speechSynthesis.cancel();
     const spoken = text
-      .replace(/₦\\s*([\\d,]+(?:\\.\\d+)?)\\s*\\/\\s*kg/gi, (_, amount:string) => `${Number(amount.replace(/,/g, '')).toLocaleString('en-NG')} naira per kilogram`)
-      .replace(/₦\\s*([\\d,]+(?:\\.\\d+)?)/g, (_, amount:string) => `${Number(amount.replace(/,/g, '')).toLocaleString('en-NG')} naira`)
-      .replace(/\\b(20\\d{2})-(\\d{2})-(\\d{2})\\b/g, (match:string, y:string, m:string, d:string) => {
+      .replace(/₦\s*([\d,]+(?:\.\d+)?)\s*\/\s*kg/gi, (_, amount:string) => `${Number(amount.replace(/,/g, '')).toLocaleString('en-NG')} naira per kilogram`)
+      .replace(/₦\s*([\d,]+(?:\.\d+)?)/g, (_, amount:string) => `${Number(amount.replace(/,/g, '')).toLocaleString('en-NG')} naira`)
+      .replace(/\b(20\d{2})-(\d{2})-(\d{2})\b/g, (match:string, y:string, m:string, d:string) => {
         const date = new Date(Number(y), Number(m)-1, Number(d));
         return Number.isNaN(date.getTime()) ? match : new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric'}).format(date);
       })
-      .replace(/\\bXGBoost\\b/g, 'X G Boost')
-      .replace(/\\bkg\\b/g, 'kilograms')
-      .replace(/\\n{2,}/g, '. ')
-      .replace(/\\n/g, '. ');
+      .replace(/\bXGBoost\b/g, 'X G Boost')
+      .replace(/\bkg\b/g, 'kilograms')
+      .replace(/\n{2,}/g, '. ')
+      .replace(/\n/g, '. ');
     const u = new SpeechSynthesisUtterance(spoken);
     const preferredLang = language === 'auto' ? 'en-NG' : language;
     const voices = window.speechSynthesis.getVoices();
