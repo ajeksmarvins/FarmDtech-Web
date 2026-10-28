@@ -15,7 +15,7 @@ function respond(question: string, data: ForecastRecord[], crop: string): string
   if (!rows.length) return 'I could not find saved forecasts for that location. Try asking about another state or leave out the state.';
   const month = rows[0].forecast_month;
   const top = rows.slice(0,3).map((r,i)=>`${i+1}. ${r.market}, ${r.state}: ${formatNaira(r.forecast_ngn_per_kg)}/kg`).join('\n');
-  const isPidgin = /\\b(abeg|wetin|dey|fit|wan|na|wey|make i)\\b/i.test(question);
+  const isPidgin = /\b(abeg|wetin|dey|fit|wan|na|wey|make i)\b/i.test(question);
   if (isPidgin) return `For ${crop} ${state ? 'inside '+state : 'across available markets'}, na these markets get the highest saved forecast prices for ${month}:\n\n${top}\n\nNa prediction from historical estimated data, no be live market price. Check buyer offer, transport and market charges before you sell.`;
   if (/hello|^hi$|good morning|thank/i.test(lower)) return `Hello! I can compare saved ${crop} price forecasts. Try asking “Where should I sell ${crop}?”\n\nForecasts are estimates, not live market quotes.`;
   return `Here are the highest saved ${crop} price forecasts ${state ? 'in '+state : 'across available markets'} for ${month}:\n\n${top}\n\nThese are XGBoost estimates based on historical estimated prices, not verified live quotes or guaranteed profits. Check actual buyer offers, transport costs, storage and fees before deciding.`;
