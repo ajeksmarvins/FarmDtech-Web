@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Bot, Send, Sparkles, RotateCcw, LoaderCircle, Database, Mic, Volume2, Languages } from 'lucide-react';
+import { Bot, Send, Sparkles, RotateCcw, LoaderCircle, Database, Mic, Volume2, Square, Languages } from 'lucide-react';
 
 type Message = { role: 'assistant' | 'user'; text: string };
 type BrowserRecognition = {
@@ -75,9 +75,11 @@ export default function AdvisoryChat() {
   const [selectedVoice,setSelectedVoice] = useState('Samantha|en-US');
   const [speechRate,setSpeechRate] = useState(1);
   const [listening,setListening] = useState(false);
+  const [speakingIndex,setSpeakingIndex] = useState<number | null>(null);
+  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
   const [showVoiceSettings,setShowVoiceSettings] = useState(false);
   const recognitionRef = useRef<BrowserRecognition | null>(null);
-  useEffect(() => () => {recognitionRef.current?.stop();}, []);
+  useEffect(() => () => {recognitionRef.current?.stop();window.speechSynthesis?.cancel();}, []);
   useEffect(() => {
     if (!('speechSynthesis' in window)) return;
     const refresh = () => setAvailableVoices(window.speechSynthesis.getVoices());
@@ -109,9 +111,17 @@ export default function AdvisoryChat() {
       setMessages(prev=>[...prev,{role:'assistant',text:`I could not answer that right now. ${detail}`}]);
     } finally {setBusy(false);}
   }
-  function speak(text:string) {
+  function speak(text:string, index:number) {
+    if (speakingIndex === index) {
+      window.speechSynthesis?.cancel();
+      speechRef.current = null;
+      setSpeakingIndex(null);
+      return;
+    }
     if (!('speechSynthesis' in window)) {setNotice('Speech playback is not available in this browser.');return;}
     window.speechSynthesis.cancel();
+    speechRef.current = null;
+    setSpeakingIndex(null);
     setNotice('');
     const spoken = text
       .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
@@ -142,7 +152,11 @@ export default function AdvisoryChat() {
     if (voice) {u.voice=voice;u.lang=voice.lang;} else {u.lang=preferredLang;}
     u.rate=speechRate;
     u.pitch=1;
-    u.onerror=()=>setNotice('Speech playback could not complete on this device.');
+    speechRef.current = u;
+    u.onstart = () => {if (speechRef.current === u) setSpeakingIndex(index);};
+    u.onend = () => {if (speechRef.current === u) {speechRef.current=null;setSpeakingIndex(null);}};
+    u.onerror = event => {if (speechRef.current === u) {speechRef.current=null;setSpeakingIndex(null);if (event.error !== 'canceled' && event.error !== 'interrupted') setNotice('Speech playback could not complete on this device.');}};
+    setSpeakingIndex(index);
     window.speechSynthesis.speak(u);
   }
   function microphone() {
@@ -180,9 +194,9 @@ export default function AdvisoryChat() {
     <div className="mb-7"><p className="text-xs font-bold uppercase tracking-[.2em] text-[#55a936]">FarmDtech advisory</p><h1 className="mt-2 text-3xl font-bold tracking-tight text-[#103f2c] sm:text-5xl">Your farming questions, answered.</h1><p className="mt-3 max-w-2xl text-slate-600">Explore crop selling opportunities through a simple conversation. Grounded in FarmDtech's saved price forecasts.</p></div>
     <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
       <div className="flex min-w-0 min-h-[600px] flex-col overflow-hidden rounded-[1.6rem] border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4"><div className="rounded-xl bg-[#e8f5e8] p-2.5 text-[#126b42]"><Bot size={22}/></div><div className="min-w-0 flex-1"><h2 className="font-bold text-[#103f2c]">FarmDtech Forecast Assistant</h2><p className="text-xs text-slate-500">Gemini AI · Saved forecast context</p></div><button onClick={()=>{setMessages([{role:'assistant',text:welcome}]);setNotice('');}} title="New conversation" aria-label="New conversation" className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:text-[#126b42]"><RotateCcw size={17}/></button></div>
+        <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4"><div className="rounded-xl bg-[#e8f5e8] p-2.5 text-[#126b42]"><Bot size={22}/></div><div className="min-w-0 flex-1"><h2 className="font-bold text-[#103f2c]">FarmDtech Forecast Assistant</h2><p className="text-xs text-slate-500">Gemini AI · Saved forecast context</p></div><button onClick={()=>{window.speechSynthesis?.cancel();speechRef.current=null;setSpeakingIndex(null);setMessages([{role:'assistant',text:welcome}]);setNotice('');}} title="New conversation" aria-label="New conversation" className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:text-[#126b42]"><RotateCcw size={17}/></button></div>
         <div className="flex-1 space-y-5 overflow-y-auto bg-[#fbfdfb] px-4 py-6 sm:px-6" style={{maxHeight:510}} aria-live="polite">
-          {messages.map((m,i)=><div key={i} className={`flex ${m.role==='user'?'justify-end':'justify-start'}`}><div className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-7 sm:max-w-[80%] ${m.role==='user'?'bg-[#126b42] text-white':'border border-slate-200 bg-white text-slate-700 shadow-sm'}`}><MessageText text={m.text}/>{m.role==='assistant'&&<button onClick={()=>speak(m.text)} className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#126b42]" title="Listen to response"><Volume2 size={14}/> Listen</button>}</div></div>)}
+          {messages.map((m,i)=><div key={i} className={`flex ${m.role==='user'?'justify-end':'justify-start'}`}><div className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-7 sm:max-w-[80%] ${m.role==='user'?'bg-[#126b42] text-white':'border border-slate-200 bg-white text-slate-700 shadow-sm'}`}><MessageText text={m.text}/>{m.role==='assistant'&&<button onClick={()=>speak(m.text,i)} className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-[#126b42]" title={speakingIndex===i ? "Stop reading" : "Listen to response"} aria-label={speakingIndex===i ? "Stop reading" : "Listen to response"}>{speakingIndex===i ? <><Square size={14} fill="currentColor"/> Stop</> : <><Volume2 size={14}/> Listen</>}</button>}</div></div>)}
           {busy&&<div className="flex items-center gap-2 text-sm text-slate-500"><LoaderCircle size={16} className="animate-spin"/>Checking saved forecasts…</div>}
           <div ref={bottom}/>
         </div>
