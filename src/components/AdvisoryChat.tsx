@@ -60,20 +60,20 @@ export default function AdvisoryChat() {
     window.speechSynthesis.cancel();
     setNotice('');
     const spoken = text
-      .replace(/\\[([^\\]]+)\\]\\([^)]+\\)/g, '$1')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
       .replace(/[*_`#>]/g, '')
-      .replace(/₦\\s*([\\d,]+(?:\\.\\d+)?)\\s*\\/\\s*kg/gi, (_, amount:string) => `${Number(amount.replace(/,/g, '')).toLocaleString('en-NG')} naira per kilogram`)
-      .replace(/₦\\s*([\\d,]+(?:\\.\\d+)?)/g, (_, amount:string) => `${Number(amount.replace(/,/g, '')).toLocaleString('en-NG')} naira`)
-      .replace(/\\b(20\\d{2})-(\\d{2})-(\\d{2})\\b/g, (match:string, y:string, m:string, d:string) => {
+      .replace(/₦\s*([\d,]+(?:\.\d+)?)\s*\/\s*kg/gi, (_, amount:string) => `${Number(amount.replace(/,/g, '')).toLocaleString('en-NG')} naira per kilogram`)
+      .replace(/₦\s*([\d,]+(?:\.\d+)?)/g, (_, amount:string) => `${Number(amount.replace(/,/g, '')).toLocaleString('en-NG')} naira`)
+      .replace(/\b(20\d{2})-(\d{2})-(\d{2})\b/g, (match:string, y:string, m:string, d:string) => {
         const date = new Date(Number(y), Number(m)-1, Number(d));
         return Number.isNaN(date.getTime()) ? match : new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'long',year:'numeric'}).format(date);
       })
-      .replace(/\\bXGBoost\\b/gi, 'X G Boost')
-      .replace(/\\bkg\\b/gi, 'kilograms')
-      .replace(/\\bNGN\\b/g, 'Nigerian naira')
-      .replace(/\\n\\s*[-•]\\s*/g, '. ')
-      .replace(/\\n+/g, '. ')
-      .replace(/\\.{2,}/g, '.')
+      .replace(/\bXGBoost\b/gi, 'X G Boost')
+      .replace(/\bkg\b/gi, 'kilograms')
+      .replace(/\bNGN\b/g, 'Nigerian naira')
+      .replace(/\n\s*[-•]\s*/g, '. ')
+      .replace(/\n+/g, '. ')
+      .replace(/\.{2,}/g, '.')
       .trim();
     const u = new SpeechSynthesisUtterance(spoken);
     const voices = window.speechSynthesis.getVoices();
