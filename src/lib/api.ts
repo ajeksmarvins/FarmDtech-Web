@@ -47,6 +47,27 @@ export async function fetchPrices(): Promise<PricesResponse> {
   return pricesRequest;
 }
 
+// Compact endpoints keep the browser from downloading all historical rows.
+async function getJSON<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`);
+  if (!response.ok) throw new Error(`API request failed: ${response.status}`);
+  return response.json() as Promise<T>;
+}
+export type PriceSummary = {
+  count: number; average: number; markets: number; observed: number;
+  chart: { date: string; price: number }[];
+};
+export type PricePage = {
+  count: number; page: number; page_size: number; states: string[]; prices: CropPrice[];
+};
+export type PriceTrends = { chart: { date: string; price: number }[] };
+export const fetchPriceSummary = (crop: string) =>
+  getJSON<PriceSummary>(`/prices/summary?crop=${encodeURIComponent(crop)}`);
+export const fetchPricePage = (crop: string, state: string, search: string, page: number) =>
+  getJSON<PricePage>(`/prices/page?crop=${encodeURIComponent(crop)}&state=${encodeURIComponent(state)}&search=${encodeURIComponent(search)}&page=${page}&page_size=12`);
+export const fetchPriceTrends = (crop: string) =>
+  getJSON<PriceTrends>(`/prices/trends?crop=${encodeURIComponent(crop)}`);
+
 export function formatNaira(value: number): string {
   return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(value);
 }
