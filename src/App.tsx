@@ -1,3 +1,4 @@
+import PublishedPricesPanel from './components/PublishedPricesPanel';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import AdvisoryChat from './components/AdvisoryChat';
 import { BrowserRouter, Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
@@ -79,6 +80,7 @@ function Prices() {
   const pages = Math.max(1, Math.ceil((data?.count ?? 0) / 12));
   return <div className="mx-auto max-w-7xl px-5 py-12 lg:px-8">
     <PageHeader eyebrow="Market prices" title="Know the going rate." text="Browse historical records in Nigerian naira per kilogram. Every entry is clearly labelled as observed or estimated." />
+    <PublishedPricesPanel />
     <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
       <div className="flex flex-col gap-3 lg:flex-row">
         <input aria-label="Search crop, market, or state" value={query} onChange={e => updateQuery(e.target.value)} placeholder="Search crop, market, or state" className="flex-1 rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
