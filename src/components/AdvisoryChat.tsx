@@ -10,7 +10,7 @@ type BrowserRecognition = {
   start: () => void; stop: () => void;
 };
 type SpeechBrowser = Window & { SpeechRecognition?: new () => BrowserRecognition; webkitSpeechRecognition?: new () => BrowserRecognition };
-const welcome = 'Welcome to FarmDtech! Ask me about maize, rice or beans forecasts, or say something like “Where should I sell maize in Borno?” I use saved model forecasts, not live market prices.';
+const welcome = 'Welcome to FarmDtech AI! 🌱 Your smart farming assistant. Ask me about crop cultivation, pest and disease management, soil health, agricultural market prices, and crop price forecasts. I’m here to help you make informed farming decisions. Published reference prices may be temporarily unavailable and forecasts are estimates, not live market quotes.';
 const examples = ['Where should I sell maize?', 'Compare rice markets in Kano', 'Which beans market has the highest forecast?'];
 // Render common Gemini Markdown as safe React elements, without injecting HTML.
 function inlineMarkdown(text: string): ReactNode[] {
