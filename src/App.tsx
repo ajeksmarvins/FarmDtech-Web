@@ -56,7 +56,7 @@ function useCompactData<T>(loader: () => Promise<T>, dependencies: unknown[], ca
     setLoading(saved === null);
     setError('');
     loader().then(value => { if (active) setData(value); })
-      .catch(() => { if (active) setError('Could not load this data. Please try again.'); })
+      .catch(() => { if (active && !saved) setError('Could not load this data. Please try again.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [...dependencies, attempt]);
@@ -119,7 +119,7 @@ function useForecast(crop: string) {
     setData(saved);
     fetchForecast(crop)
       .then(setData)
-      .catch(() => setError('We could not reach the forecast service. It may be waking up on Render — please wait a moment and try again.'))
+      .catch(() => { if (!saved) setError('We could not reach the forecast service. Please try again.'); })
       .finally(() => setLoading(false));
   }, [crop, reloadKey]);
   return { data, loading, error, retry: () => setReloadKey((key) => key + 1) };
