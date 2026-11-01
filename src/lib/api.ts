@@ -48,10 +48,30 @@ export async function fetchPrices(): Promise<PricesResponse> {
 }
 
 // Compact endpoints keep the browser from downloading all historical rows.
+// Reuse recently fetched compact responses across page navigation and reloads.
+// Keep a short expiry so historical figures aren't displayed indefinitely.
+const COMPACT_CACHE_MS = 5 * 60 * 1000;
+export function getCachedCompactData<T>(path: string): T | null {
+  try {
+    const raw = sessionStorage.getItem('farmdtech:compact:' + path);
+    if (!raw) return null;
+    const entry = JSON.parse(raw) as { expiresAt: number; data: T };
+    if (entry.expiresAt <= Date.now()) return null;
+    return entry.data;
+  } catch {
+    return null;
+  }
+}
 async function getJSON<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`);
   if (!response.ok) throw new Error(`API request failed: ${response.status}`);
-  return response.json() as Promise<T>;
+  const data = await response.json() as T;
+  try {
+    sessionStorage.setItem('farmdtech:compact:' + path, JSON.stringify({
+      expiresAt: Date.now() + COMPACT_CACHE_MS, data,
+    }));
+  } catch { /* Storage disabled or full; network data still works. */ }
+  return data;
 }
 export type PriceSummary = {
   count: number; average: number; markets: number; observed: number;
@@ -111,6 +131,14 @@ function isForecastResponse(value: unknown): value is ForecastResponse {
   return typeof r.count === 'number' && Array.isArray(r.forecasts);
 }
 
+export function getCachedForecast(crop: string): ForecastResponse | null {
+  try {
+    const raw = sessionStorage.getItem('farmdtech:forecast:' + crop.toLowerCase());
+    if (!raw) return null;
+    const entry = JSON.parse(raw) as { expiresAt: number; data: ForecastResponse };
+    return entry.expiresAt > Date.now() && isForecastResponse(entry.data) ? entry.data : null;
+  } catch { return null; }
+}
 const forecastCache = new Map<string, { data: ForecastResponse; expiresAt: number }>();
 const forecastRequests = new Map<string, Promise<ForecastResponse>>();
 
@@ -127,6 +155,7 @@ export async function fetchForecast(crop: string): Promise<ForecastResponse> {
       const payload: unknown = await response.json();
       if (!isForecastResponse(payload)) throw new Error('Forecast response was not in the expected format.');
       forecastCache.set(key, { data: payload, expiresAt: Date.now() + 120_000 });
+      try { sessionStorage.setItem('farmdtech:forecast:' + key, JSON.stringify({ expiresAt: Date.now() + 120_000, data: payload })); } catch { /* Optional cache */ }
       return payload;
     })
     .finally(() => { forecastRequests.delete(key); });
